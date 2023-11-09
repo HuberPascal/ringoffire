@@ -3,6 +3,19 @@ import { Game } from 'src/models/games';
 import { MatDialog } from '@angular/material/dialog';
 import { DialogAddPlayerComponent } from '../dialog-add-player/dialog-add-player.component';
 
+import { inject } from '@angular/core';
+import {
+  Firestore,
+  collection,
+  collectionData,
+  doc,
+} from '@angular/fire/firestore';
+
+import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
+
+const firebaseConfig = environment.firebaseConfig;
+
 @Component({
   selector: 'app-game',
   templateUrl: './game.component.html',
@@ -13,10 +26,37 @@ export class GameComponent implements OnInit {
   currentCard: string = '';
   game: Game = new Game();
 
-  constructor(public dialog: MatDialog) {}
+  items$;
+  items;
+
+  firestore: Firestore = inject(Firestore);
+
+  constructor(public dialog: MatDialog) {
+    this.items$ = collectionData(this.pascalCollection());
+    this.items = this.items$.subscribe((list) => {
+      list.forEach((element) => {
+        console.log('test', element);
+      });
+    });
+  }
 
   ngOnInit(): void {
     this.newGame();
+
+    // this.firestore
+    //   .collection('game')
+    //   .valueChanges()
+    //   .subscribe((game: Game) => {
+    //     console.log('JUNUS FUNKTION', game);
+    //   });
+  }
+
+  pascalCollection() {
+    return collection(this.firestore, 'game');
+  }
+
+  PascalGetSingelDocRef(colId: string, docId: string) {
+    return doc(collection(this.firestore, colId), docId);
   }
 
   newGame() {
