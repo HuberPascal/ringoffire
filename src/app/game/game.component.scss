@@ -3,6 +3,8 @@
   height: 100vh;
   max-width: 100%;
   background-image: url("../../assets/img/board.jpg");
+  background-size: cover;
+  background-repeat: no-repeat;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -53,6 +55,7 @@
 .player-position {
   position: absolute;
   right: 0;
+  z-index: 1;
 }
 
 .btn-add {
