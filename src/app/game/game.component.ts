@@ -5,18 +5,16 @@ import { DialogAddPlayerComponent } from '../dialog-add-player/dialog-add-player
 import {
   Firestore,
   collection,
-  collectionData,
   doc,
   getDocs,
-  getFirestore,
   addDoc,
   updateDoc,
   onSnapshot,
 } from '@angular/fire/firestore';
 
-import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { ActivatedRoute } from '@angular/router';
+import { EditPlayerComponent } from '../edit-player/edit-player.component';
 
 const firebaseConfig = environment.firebaseConfig;
 
@@ -28,26 +26,19 @@ const firebaseConfig = environment.firebaseConfig;
 export class GameComponent implements OnInit {
   game: Game = new Game();
   gameId: string | undefined;
+  gameOver: boolean = false;
 
-  items$;
-  items;
-
-  db = getFirestore();
-
-  constructor(private route: ActivatedRoute, public dialog: MatDialog) {
-    this.items$ = collectionData(this.gameCollection());
-    this.items = this.items$.subscribe((list) => {
-      list.forEach((element) => {
-        // console.log('test', element);
-      });
-    });
-  }
+  constructor(
+    private route: ActivatedRoute,
+    public dialog: MatDialog,
+    public db: Firestore
+  ) {}
 
   ngOnInit(): void {
     // this.addDocumentToFirebase();
-    this.addDocumentToFirebaseAsJSON(); // Daten beim starten auf Firebase laden
-    this.getDocumentFromFirebase();
-    this.getDocumentsFromFirebaseStringify();
+    // this.addDocumentToFirebaseAsJSON(); // Daten beim starten auf Firebase laden
+    // this.getDocumentFromFirebase();
+    // this.getDocumentsFromFirebaseStringify();
 
     // URL Parameter abonnieren von game/:id
     this.route.params.subscribe((params) => {
@@ -65,9 +56,12 @@ export class GameComponent implements OnInit {
         console.log('Current data: ', doc.data()?.['players']);
 
         this.game.players = doc.data()?.['players'];
+        this.game.player_images = doc.data()?.['player_images'];
         this.game.stack = doc.data()?.['stack'];
         this.game.playedCards = doc.data()?.['playedCards'];
         this.game.currentPlayer = doc.data()?.['currentPlayer'];
+        this.game.pickCardAnimation = doc.data()?.['pickCardAnimation'];
+        this.game.currentCard = doc.data()?.['currentCard'];
       });
     } catch (error) {
       console.error('Fehler beim Aktualisieren der Daten:', error);
@@ -91,11 +85,11 @@ export class GameComponent implements OnInit {
 
   // Daten in den Firebase schreiben von einem JSON objekt von games.ts (return)
   async addDocumentToFirebaseAsJSON() {
-    this.game = new Game();
+    // this.game = new Game();
     try {
       const gameData = this.game.toJson(); // Holen Sie sich das JSON-Objekt von der Game-Klasse
       const docRef = await addDoc(collection(this.db, 'games'), gameData);
-      // console.log(`Added JSON document with ID: ${docRef.id}`);
+      console.log(`Added JSON document with ID: ${docRef.id}`);
     } catch (error) {
       console.error('Fehler beim Schreiben der Dokumente (JSON):', error);
     }
@@ -131,9 +125,12 @@ export class GameComponent implements OnInit {
 
     await updateDoc(firebaseData, {
       players: gameData.players,
+      player_images: gameData.player_images,
       stack: gameData.stack,
       playedCards: gameData.playedCards,
       currentPlayer: gameData.currentPlayer,
+      pickCardAnimation: gameData.pickCardAnimation,
+      currentCard: gameData.currentCard,
     });
   }
 
@@ -149,15 +146,14 @@ export class GameComponent implements OnInit {
     return collection(this.db, 'games');
   }
 
-  collectionUsers() {
-    return collection(this.db, 'users');
-  }
-
   takeCard() {
-    if (!this.game.pickCardAnimation) {
+    if (this.game.stack.length == 0) {
+      this.gameOver = true;
+    } else if (!this.game.pickCardAnimation) {
       this.game.currentCard = this.game.stack.pop() || '';
-      console.log(this.game.currentCard);
       this.game.pickCardAnimation = true;
+      console.log('new card:', this.game.currentCard);
+      console.log('game is', this.game);
 
       this.game.currentPlayer++;
       this.game.currentPlayer =
@@ -167,8 +163,26 @@ export class GameComponent implements OnInit {
       setTimeout(() => {
         this.game.playedCards.push(this.game.currentCard);
         this.game.pickCardAnimation = false;
+        this.saveGame();
       }, 1000);
     }
+  }
+
+  editPlayer(playerId: number) {
+    console.log('Edit player', playerId);
+
+    const dialogRef = this.dialog.open(EditPlayerComponent);
+    dialogRef.afterClosed().subscribe((change: string) => {
+      if (change) {
+        if (change == 'DELETE') {
+          this.game.players.splice(playerId, 1);
+          this.game.player_images.splice(playerId, 1);
+        } else {
+          this.game.player_images[playerId] = change;
+        }
+        this.saveGame();
+      }
+    });
   }
 
   openDialog(): void {
@@ -177,6 +191,7 @@ export class GameComponent implements OnInit {
     dialogRef.afterClosed().subscribe((name: string) => {
       if (name && name.length > 0) {
         this.game.players.push(name);
+        this.game.player_images.push('women.png');
         this.saveGame();
       }
     });
